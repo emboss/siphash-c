@@ -1,6 +1,5 @@
 #include <string.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <limits.h>
 #include "siphash.h"
 
@@ -156,15 +155,19 @@ static void
 int_sip_update(sip_state *state, uint8_t *data, size_t len)
 {
     uint64_t m;
-    size_t i;
+    uint64_t *end;
+    uint64_t *data64 = (uint64_t *) data;
    
     state->msglen_byte = state->msglen_byte + (len % 256);
 
     int_sip_pre_update(state, &data, &len);
 
-    for (i = 0; i < len / 8; i++) {
-	m = U8TO64_LE(data + (i * 8));
+    end = data64 + (len / 8);
+
+    while (data64 != end) {
+	m = *data64;
 	int_sip_update_block(state, m);
+	data64++;
     }
 
     int_sip_post_update(state, data, len);
