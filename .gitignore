@@ -4,4 +4,4 @@ tmp
 *~
 *.so
 *.o
-
+test/test
