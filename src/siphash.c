@@ -1,6 +1,5 @@
 #include <string.h>
 #include <stdio.h>
-#include <limits.h>
 #include "siphash.h"
 
 #define U8TO32_LE(p)         						\
