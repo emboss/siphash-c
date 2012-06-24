@@ -106,7 +106,7 @@ int_sip_init(sip_state *state, uint8_t key[16])
     state->v[3] = k1 ^ sip_init_state[3];
 }
 
-static void
+static inline void
 int_sip_round(sip_state *state, int n)
 {
     int i;
@@ -116,7 +116,7 @@ int_sip_round(sip_state *state, int n)
     }
 }
 
-static void
+static inline void
 int_sip_update_block(sip_state *state, uint64_t m)
 { 
     state->v[3] ^= m;
