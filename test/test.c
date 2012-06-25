@@ -36,9 +36,7 @@ test_spec_one_pass(void)
    
     assert(h = sip_hash_new(SPEC_KEY, 2, 4));
     assert(sip_hash_digest_integer(h, SPEC_MSG, 15, &digest64));
-
     sip_hash_free(h);
-
     printf("Spec: %" PRIx64 "\n", digest64); 
     assert(digest64 == 0xa129ca6149be45e5ULL);
 }
@@ -51,9 +49,9 @@ test_empty_string(void)
 
     assert(h = sip_hash_new(SPEC_KEY, 2, 4));
     assert(sip_hash_digest_integer(h, (uint8_t *) "", 0, &digest64));
-    printf("Empty string : %" PRIx64 "\n", digest64); 
-
     sip_hash_free(h);
+    printf("Empty string: %" PRIx64 "\n", digest64); 
+    assert(digest64 == 0x726fdb47dd0e0e31ULL);
 }
 
 static void
@@ -64,9 +62,9 @@ test_one_byte(void)
 
     assert(h = sip_hash_new(SPEC_KEY, 2, 4));
     assert(sip_hash_digest_integer(h, (uint8_t *) "a", 1, &digest64));
-    printf("One byte (a): %" PRIx64 "\n", digest64); 
-
     sip_hash_free(h);
+    printf("One byte (a): %" PRIx64 "\n", digest64); 
+    assert(digest64 == 0x2ba3e8e9a71148caULL);
 }
 
 static void
@@ -77,9 +75,9 @@ test_six_bytes(void)
 
     assert(h = sip_hash_new(SPEC_KEY, 2, 4));
     assert(sip_hash_digest_integer(h, (uint8_t *) "abcdef", 6, &digest64));
-    printf("Six bytes (abcdef): %" PRIx64 "\n", digest64); 
-
     sip_hash_free(h);
+    printf("Six bytes (abcdef): %" PRIx64 "\n", digest64); 
+    assert(digest64 == 0x2a6e77e733c7c05dULL);
 }
 
 static void
@@ -90,9 +88,9 @@ test_seven_bytes(void)
 
     assert(h = sip_hash_new(SPEC_KEY, 2, 4));
     assert(sip_hash_digest_integer(h, (uint8_t *) "SipHash", 7, &digest64));
-    printf("Seven bytes (SipHash): %" PRIx64 "\n", digest64); 
-
     sip_hash_free(h);
+    printf("Seven bytes (SipHash): %" PRIx64 "\n", digest64); 
+    assert(digest64 == 0x8325093242a96f60ULL);
 }
 
 static void
@@ -103,9 +101,9 @@ test_eight_bytes(void)
 
     assert(h = sip_hash_new(SPEC_KEY, 2, 4));
     assert(sip_hash_digest_integer(h, (uint8_t *) "12345678", 8, &digest64));
-    printf("Eight bytes (12345678): %" PRIx64 "\n", digest64); 
-
     sip_hash_free(h);
+    printf("Eight bytes (12345678): %" PRIx64 "\n", digest64); 
+    assert(digest64 == 0x2130609caea37ebULL);
 }
 
 static void
@@ -118,9 +116,9 @@ test_one_mio_zero_bytes(void)
     memset(msg, 0, 1000000);
     assert(h = sip_hash_new(SPEC_KEY, 2, 4));
     assert(sip_hash_digest_integer(h, msg, 1000000, &digest64));
-    printf("One million zero bytes: %" PRIx64 "\n", digest64); 
-
     sip_hash_free(h);
+    printf("One million zero bytes: %" PRIx64 "\n", digest64); 
+    assert(digest64 == 0x28205108397aa742ULL);
 }
 
 static void
@@ -140,6 +138,7 @@ test_24_empty_string(void)
    
     digest64 = sip_hash24(SPEC_KEY, (uint8_t *) "", 0);
     printf("sip_hash24 empty string: %" PRIx64 "\n", digest64); 
+    assert(digest64 == 0x726fdb47dd0e0e31ULL);
 }
 
 static void
@@ -149,6 +148,7 @@ test_24_one_byte(void)
    
     digest64 = sip_hash24(SPEC_KEY, (uint8_t *) "a", 1);
     printf("sip_hash24 one byte (a): %" PRIx64 "\n", digest64); 
+    assert(digest64 == 0x2ba3e8e9a71148caULL);
 }
 
 static void
@@ -158,6 +158,7 @@ test_24_six_bytes(void)
    
     digest64 = sip_hash24(SPEC_KEY, (uint8_t *) "abcdef", 6);
     printf("sip_hash24 six bytes (a): %" PRIx64 "\n", digest64); 
+    assert(digest64 == 0x2a6e77e733c7c05dULL);
 }
 
 static void
@@ -167,6 +168,7 @@ test_24_seven_bytes(void)
    
     digest64 = sip_hash24(SPEC_KEY, (uint8_t *) "SipHash", 7);
     printf("sip_hash24 seven bytes (SipHash): %" PRIx64 "\n", digest64); 
+    assert(digest64 == 0x8325093242a96f60ULL);
 }
 
 static void
@@ -176,6 +178,7 @@ test_24_eight_bytes(void)
    
     digest64 = sip_hash24(SPEC_KEY, (uint8_t *) "12345678", 8);
     printf("sip_hash24 eight bytes (12345678): %" PRIx64 "\n", digest64); 
+    assert(digest64 == 0x2130609caea37ebULL);
 }
 
 static void
@@ -187,6 +190,7 @@ test_24_one_mio_zero_bytes(void)
     memset(msg, 0, 1000000);
     digest64 = sip_hash24(SPEC_KEY, msg, 1000000);
     printf("sip_hash24 one million zero bytes: %" PRIx64 "\n", digest64); 
+    assert(digest64 == 0x28205108397aa742ULL);
 }
 
 int main(int argc, char **argv) {

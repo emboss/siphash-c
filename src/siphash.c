@@ -2,6 +2,12 @@
 #include <stdio.h>
 #include "siphash.h"
 
+#ifdef _WIN32 
+  #define BYTE_ORDER __LITTLE_ENDIAN 
+#else
+  #include <endian.h>
+#endif
+
 #define U8TO32_LE(p)         						\
     (((uint32_t)((p)[0])       ) | ((uint32_t)((p)[1]) <<  8) |  	\
      ((uint32_t)((p)[2]) <<  16) | ((uint32_t)((p)[3]) << 24))		\
@@ -26,11 +32,11 @@ do {						\
 #define ROTL64(v, s)			\
     ((v) << (s)) | ((v) >> (64 - (s)))
 
-typedef struct sip_state_st {
+typedef struct {
   int c;
   int d;
   uint64_t v[4];
-  uint8_t buf[8];
+  uint8_t buf[sizeof(uint64_t)];
   uint8_t buflen;
   uint8_t msglen_byte;
 } sip_state;
@@ -57,7 +63,7 @@ static void int_sip_init(sip_state *state, uint8_t *key);
 static void int_sip_update(sip_state *state, uint8_t *data, size_t len);
 static void int_sip_final(sip_state *state, uint64_t *digest);
 
-sip_interface sip_methods = {
+static sip_interface sip_methods = {
     int_sip_init,
     int_sip_update,
     int_sip_final
@@ -97,7 +103,7 @@ int_sip_init(sip_state *state, uint8_t key[16])
     uint64_t k0, k1;
 
     k0 = U8TO64_LE(key);
-    k1 = U8TO64_LE(key + 8);
+    k1 = U8TO64_LE(key + sizeof(uint64_t));
 
     state->v[0] = k0 ^ sip_init_state[0];
     state->v[1] = k1 ^ sip_init_state[1];
@@ -131,7 +137,7 @@ int_sip_pre_update(sip_state *state, uint8_t **pdata, size_t *plen)
 
     if (!state->buflen) return;
 
-    to_read = 8 - state->buflen;
+    to_read = sizeof(uint64_t) - state->buflen;
     memcpy(state->buf + state->buflen, *pdata, to_read);
     m = U8TO64_LE(state->buf);
     int_sip_update_block(state, m);
@@ -143,7 +149,7 @@ int_sip_pre_update(sip_state *state, uint8_t **pdata, size_t *plen)
 static inline void
 int_sip_post_update(sip_state *state, uint8_t *data, size_t len)
 {
-    uint8_t r = len % 8;
+    uint8_t r = len % sizeof(uint64_t);
     if (r) {
 	memcpy(state->buf, data + len - r, r);
 	state->buflen = r;
@@ -153,21 +159,32 @@ int_sip_post_update(sip_state *state, uint8_t *data, size_t len)
 static void 
 int_sip_update(sip_state *state, uint8_t *data, size_t len)
 {
-    uint64_t m;
     uint64_t *end;
-    uint64_t *data64 = (uint64_t *) data;
-   
+    uint64_t *data64;
+
     state->msglen_byte = state->msglen_byte + (len % 256);
+    data64 = (uint64_t *) data;
 
     int_sip_pre_update(state, &data, &len);
+     
+    end = data64 + (len / sizeof(uint64_t));
 
-    end = data64 + (len / 8);
-
+#if BYTE_ORDER == __BIG_ENDIAN
     while (data64 != end) {
-	m = *data64;
-	int_sip_update_block(state, m);
-	data64++;
+	int_sip_update_block(state, *data64++);
     }
+#elif BYTE_ORDER == __LITTLE_ENDIAN
+    {
+	uint64_t m;
+	uint8_t *data8 = data;
+	for (; data8 != (uint8_t *) end; data8 += sizeof(uint64_t)) {
+	    m = U8TO64_LE(data8);
+	    int_sip_update_block(state, m);
+	}
+    }
+#else
+  #error "Only strictly little or big endian supported"
+#endif
 
     int_sip_post_update(state, data, len);
 }
@@ -177,10 +194,10 @@ int_sip_pad_final_block(sip_state *state)
 {
     int i;
     //pad with 0's and finalize with msg_len mod 256
-    for (i = state->buflen; i < 7; i++) {
+    for (i = state->buflen; i < sizeof(uint64_t); i++) {
 	state->buf[i] = 0x00;
     }
-    state->buf[7] = state->msglen_byte;
+    state->buf[sizeof(uint64_t) - 1] = state->msglen_byte;
 }
 
 static void
@@ -203,9 +220,10 @@ int_sip_final(sip_state *state, uint64_t *digest)
 sip_hash *
 sip_hash_new(uint8_t key[16], int c, int d)
 {
-    sip_hash *h;
+    sip_hash *h = NULL;
 
     if (!(h = (sip_hash *) malloc(sizeof(sip_hash)))) return NULL;
+    h->state = NULL;
     if (!(h->state = (sip_state *) malloc(sizeof(sip_state)))) return NULL;
     h->state->c = c;
     h->state->d = d;
@@ -281,49 +299,56 @@ do {					\
 } while (0)
 
 uint64_t
-sip_hash24(uint8_t key[16], uint8_t *data, size_t len)
+sip_hash24(uint8_t key[16], uint8_t *data, uint64_t len)
 {
     uint64_t k0, k1;
     uint64_t v0, v1, v2, v3;
-    uint64_t last;
-    uint64_t *data64 = (uint64_t *)data;
-    uint64_t *end;
+    uint64_t m, last;
+    uint8_t *end = data + len - (len % sizeof(uint64_t));
 
     k0 = U8TO64_LE(key);
-    k1 = U8TO64_LE(key + 8);
+    k1 = U8TO64_LE(key + sizeof(uint64_t));
 
     v0 = k0 ^ sip_init_state[0];
     v1 = k1 ^ sip_init_state[1];
     v2 = k0 ^ sip_init_state[2];
     v3 = k1 ^ sip_init_state[3];
 
-    end = data64 + (len / 8);
-
-    while (data64 != end) {
-	uint64_t m = *data64;
-
-	SIP_2_ROUND(m, v0, v1, v2, v3);
-	data64++;
+#if BYTE_ORDER == __LITTLE_ENDIAN
+    {
+        uint64_t *data64 = (uint64_t *)data;
+        while (data64 != (uint64_t *) end) {
+	    m = *data64++;
+	    SIP_2_ROUND(m, v0, v1, v2, v3);
+        }
     }
+#elif BYTE_ORDER == __BIG_ENDIAN
+    for (; data != end; data += sizeof(uint64_t)) {
+	m = U8TO64_LE(data);
+	SIP_2_ROUND(m, v0, v1, v2, v3);
+    }
+#else
+  #error "Only strictly little or big endian supported"
+#endif
 
-    last = ((uint64_t) len) << 56;
+    last = len << 56;
 
-    switch (len % 8) {
+    switch (len % sizeof(uint64_t)) {
 	case 7: 
-	    last |= ((uint64_t) ((uint8_t *) end)[6]) << 48;
+	    last |= ((uint64_t) end[6]) << 48;
 	case 6:
-	    last |= ((uint64_t) ((uint8_t *) end)[5]) << 40;
+	    last |= ((uint64_t) end[5]) << 40;
 	case 5:
-	    last |= ((uint64_t) ((uint8_t *) end)[4]) << 32;
+	    last |= ((uint64_t) end[4]) << 32;
 	case 4:
 	    last |= (uint64_t) ((uint32_t *) end)[0];
 	    break;
 	case 3:
-	    last |= ((uint64_t) ((uint8_t *)end)[2]) << 16;
+	    last |= ((uint64_t) end[2]) << 16;
 	case 2:
-	    last |= ((uint64_t) ((uint8_t *)end)[1]) << 8;
+	    last |= ((uint64_t) end[1]) << 8;
 	case 1:
-	    last |= (uint64_t) ((uint8_t *)end)[0];
+	    last |= (uint64_t) end[0];
 	    break;
 	case 0:
 	    break;
