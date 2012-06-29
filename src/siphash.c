@@ -54,10 +54,10 @@ typedef struct {
     void (*final)(sip_state *s, uint64_t *digest);
 } sip_interface;
 
-typedef struct sip_hash_st {
+struct sip_hash_st {
     sip_state *state;
     sip_interface *methods;
-} sip_hash;
+};
 
 static void int_sip_init(sip_state *state, uint8_t *key);
 static void int_sip_update(sip_state *state, uint8_t *data, size_t len);
@@ -169,11 +169,11 @@ int_sip_update(sip_state *state, uint8_t *data, size_t len)
      
     end = data64 + (len / sizeof(uint64_t));
 
-#if BYTE_ORDER == __BIG_ENDIAN
+#if BYTE_ORDER == __LITTLE_ENDIAN
     while (data64 != end) {
 	int_sip_update_block(state, *data64++);
     }
-#elif BYTE_ORDER == __LITTLE_ENDIAN
+#elif BYTE_ORDER == __BIG_ENDIAN
     {
 	uint64_t m;
 	uint8_t *data8 = data;
@@ -341,8 +341,14 @@ sip_hash24(uint8_t key[16], uint8_t *data, uint64_t len)
 	case 5:
 	    last |= ((uint64_t) end[4]) << 32;
 	case 4:
+#if BYTE_ORDER == __LITTLE_ENDIAN
 	    last |= (uint64_t) ((uint32_t *) end)[0];
 	    break;
+#elif BYTE_ORDER == __BIG_ENDIAN
+            last |= ((uint64_t) end[3]) << 24;
+#else
+  #error "Only strictly little or big endian supported"
+#endif
 	case 3:
 	    last |= ((uint64_t) end[2]) << 16;
 	case 2:
