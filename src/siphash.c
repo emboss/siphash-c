@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include "siphash.h"
 
-#ifdef _WIN32 
-  #define BYTE_ORDER __LITTLE_ENDIAN 
+#ifdef _WIN32
+  #define BYTE_ORDER __LITTLE_ENDIAN
 #else
   #include <endian.h>
 #endif
@@ -123,7 +123,7 @@ int_sip_round(sip_state *state, int n)
 
 static inline void
 int_sip_update_block(sip_state *state, uint64_t m)
-{ 
+{
     state->v[3] ^= m;
     int_sip_round(state, state->c);
     state->v[0] ^= m;
@@ -156,7 +156,7 @@ int_sip_post_update(sip_state *state, uint8_t *data, size_t len)
     }
 }
 
-static void 
+static void
 int_sip_update(sip_state *state, uint8_t *data, size_t len)
 {
     uint64_t *end;
@@ -166,7 +166,7 @@ int_sip_update(sip_state *state, uint8_t *data, size_t len)
     data64 = (uint64_t *) data;
 
     int_sip_pre_update(state, &data, &len);
-     
+
     end = data64 + (len / sizeof(uint64_t));
 
 #if BYTE_ORDER == __LITTLE_ENDIAN
@@ -334,7 +334,7 @@ sip_hash24(uint8_t key[16], uint8_t *data, uint64_t len)
     last = len << 56;
 
     switch (len % sizeof(uint64_t)) {
-	case 7: 
+	case 7:
 	    last |= ((uint64_t) end[6]) << 48;
 	case 6:
 	    last |= ((uint64_t) end[5]) << 40;
@@ -361,7 +361,7 @@ sip_hash24(uint8_t key[16], uint8_t *data, uint64_t len)
     }
 
     SIP_2_ROUND(last, v0, v1, v2, v3);
-    
+
     v2 ^= 0xff;
 
     SIP_COMPRESS(v0, v1, v2, v3);
