@@ -4,8 +4,14 @@
 
 #ifdef _WIN32
   #define BYTE_ORDER __LITTLE_ENDIAN
-#else
+#elif !defined BYTE_ORDER
   #include <endian.h>
+#endif
+#ifndef LITTLE_ENDIAN
+#define LITTLE_ENDIAN __LITTLE_ENDIAN
+#endif
+#ifndef BIG_ENDIAN
+#define BIG_ENDIAN __BIG_ENDIAN
 #endif
 
 #define U8TO32_LE(p)         						\
@@ -169,11 +175,11 @@ int_sip_update(sip_state *state, uint8_t *data, size_t len)
 
     end = data64 + (len / sizeof(uint64_t));
 
-#if BYTE_ORDER == __LITTLE_ENDIAN
+#if BYTE_ORDER == LITTLE_ENDIAN
     while (data64 != end) {
 	int_sip_update_block(state, *data64++);
     }
-#elif BYTE_ORDER == __BIG_ENDIAN
+#elif BYTE_ORDER == BIG_ENDIAN
     {
 	uint64_t m;
 	uint8_t *data8 = data;
@@ -314,7 +320,7 @@ sip_hash24(uint8_t key[16], uint8_t *data, size_t len)
     v2 = k0 ^ sip_init_state[2];
     v3 = k1 ^ sip_init_state[3];
 
-#if BYTE_ORDER == __LITTLE_ENDIAN
+#if BYTE_ORDER == LITTLE_ENDIAN
     {
         uint64_t *data64 = (uint64_t *)data;
         while (data64 != (uint64_t *) end) {
@@ -322,7 +328,7 @@ sip_hash24(uint8_t key[16], uint8_t *data, size_t len)
 	    SIP_2_ROUND(m, v0, v1, v2, v3);
         }
     }
-#elif BYTE_ORDER == __BIG_ENDIAN
+#elif BYTE_ORDER == BIG_ENDIAN
     for (; data != end; data += sizeof(uint64_t)) {
 	m = U8TO64_LE(data);
 	SIP_2_ROUND(m, v0, v1, v2, v3);
@@ -341,10 +347,10 @@ sip_hash24(uint8_t key[16], uint8_t *data, size_t len)
 	case 5:
 	    last |= ((uint64_t) end[4]) << 32;
 	case 4:
-#if BYTE_ORDER == __LITTLE_ENDIAN
+#if BYTE_ORDER == LITTLE_ENDIAN
 	    last |= (uint64_t) ((uint32_t *) end)[0];
 	    break;
-#elif BYTE_ORDER == __BIG_ENDIAN
+#elif BYTE_ORDER == BIG_ENDIAN
             last |= ((uint64_t) end[3]) << 24;
 #else
   #error "Only strictly little or big endian supported"
