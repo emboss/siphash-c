@@ -1,7 +1,19 @@
 #include "siphash.h"
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
+#include <setjmp.h>
+
+volatile int failures = 0;
+jmp_buf failbuf;
+#define assert(expr) ((expr) || (failed(#expr, __FUNCTION__, __FILE__, __LINE__), 0))
+
+static void
+failed(const char *expr, const char *func, const char *file, int line)
+{
+    ++failures;
+    fprintf(stderr, "Assertion failed: %s, function %s, file %s, line %d\n", expr, func, file, line);
+    longjmp(failbuf, 1);
+}
 
 #define U32TO8_LE(p, v)			\
 do {					\
@@ -322,28 +334,41 @@ test_24_reference_vectors(void)
 }
 
 int main(int argc, char **argv) {
-    test_spec_streaming();
-    test_spec_one_pass();
+    static void (*const funcs[])(void) = {
+	test_spec_streaming,
+	test_spec_one_pass,
 
-    test_empty_string();
-    test_one_byte();
-    test_six_bytes();
-    test_seven_bytes();
-    test_eight_bytes();
-    //test_fifteen_bytes(); tested by the spec
-    test_one_mio_zero_bytes();
-    test_reference_vectors();
+	test_empty_string,
+	test_one_byte,
+	test_six_bytes,
+	test_seven_bytes,
+	test_eight_bytes,
+	//test_fifteen_bytes, tested by the spec
+	test_one_mio_zero_bytes,
+	test_reference_vectors,
 
-    test_24_spec();
+	test_24_spec,
 
-    test_24_empty_string();
-    test_24_one_byte();
-    test_24_six_bytes();
-    test_24_seven_bytes();
-    test_24_eight_bytes();
-    //test_24_fifteen_bytes(); tested by the spec
-    test_24_one_mio_zero_bytes();
-    test_24_reference_vectors();
+	test_24_empty_string,
+	test_24_one_byte,
+	test_24_six_bytes,
+	test_24_seven_bytes,
+	test_24_eight_bytes,
+	//test_24_fifteen_bytes, tested by the spec
+	test_24_one_mio_zero_bytes,
+	test_24_reference_vectors,
+    };
+    volatile int done = 0;
+
+    setjmp(failbuf);
+    while (done < (int)(sizeof(funcs) / sizeof(funcs[0]))) {
+	int i = done++;
+	(*funcs[i])();
+    }
+    if (failures) {
+	fprintf(stderr, "%d failures\n", failures);
+	return EXIT_FAILURE;
+    }
 
     return EXIT_SUCCESS;
 }
