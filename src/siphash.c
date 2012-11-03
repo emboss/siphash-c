@@ -14,6 +14,16 @@
 #define BIG_ENDIAN __BIG_ENDIAN
 #endif
 
+#if BYTE_ORDER == LITTLE_ENDIAN
+  #define lo u32[0]
+  #define hi u32[1]
+#elif BYTE_ORDER == BIG_ENDIAN
+  #define hi u32[0]
+  #define lo u32[1]
+#else
+  #error "Only strictly little or big endian supported"
+#endif
+
 #ifndef UNALIGNED_WORD_ACCESS
 # if defined(__i386) || defined(__i386__) || defined(_M_IX86) || \
      defined(__x86_64) || defined(__x86_64__) || defined(_M_AMD86) || \
@@ -199,8 +209,6 @@ int_sip_update(sip_state *state, uint8_t *data, size_t len)
 	    int_sip_update_block(state, m);
 	}
     }
-#else
-  #error "Only strictly little or big endian supported"
 #endif
 
     int_sip_post_update(state, data, len);
@@ -344,8 +352,6 @@ sip_hash24(uint8_t key[16], uint8_t *data, size_t len)
 	m = U8TO64_LE(data);
 	SIP_2_ROUND(m, v0, v1, v2, v3);
     }
-#else
-  #error "Only strictly little or big endian supported"
 #endif
 
     last = len << 56;
@@ -363,8 +369,6 @@ sip_hash24(uint8_t key[16], uint8_t *data, size_t len)
 	    break;
 #elif BYTE_ORDER == BIG_ENDIAN
             last |= ((uint64_t) end[3]) << 24;
-#else
-  #error "Only strictly little or big endian supported"
 #endif
 	case 3:
 	    last |= ((uint64_t) end[2]) << 16;
