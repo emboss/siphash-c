@@ -1,3 +1,5 @@
+#ifndef SIPHASH_H
+#define SIPHASH_H 1
 #include <stdlib.h>
 #include <stdint.h>
 #include <inttypes.h>
@@ -14,3 +16,5 @@ void sip_hash_free(sip_hash *h);
 void sip_hash_dump(sip_hash *h);
 
 uint64_t sip_hash24(uint8_t key[16], uint8_t *data, uint64_t len);
+
+#endif
