@@ -15,6 +15,6 @@ int sip_hash_digest_integer(sip_hash *h, uint8_t *data, size_t data_len, uint64_
 void sip_hash_free(sip_hash *h);
 void sip_hash_dump(sip_hash *h);
 
-uint64_t sip_hash24(uint8_t key[16], uint8_t *data, uint64_t len);
+uint64_t sip_hash24(uint8_t key[16], uint8_t *data, size_t len);
 
 #endif
