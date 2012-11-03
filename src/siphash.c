@@ -147,14 +147,14 @@ typedef struct {
 
 struct sip_hash_st {
     sip_state *state;
-    sip_interface *methods;
+    const sip_interface *methods;
 };
 
 static void int_sip_init(sip_state *state, uint8_t *key);
 static void int_sip_update(sip_state *state, uint8_t *data, size_t len);
 static void int_sip_final(sip_state *state, uint64_t *digest);
 
-static sip_interface sip_methods = {
+static const sip_interface sip_methods = {
     int_sip_init,
     int_sip_update,
     int_sip_final
