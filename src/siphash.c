@@ -59,6 +59,11 @@ do {						\
 #define ROTL64(v, s)			\
     ((v) << (s)) | ((v) >> (64 - (s)))
 
+#define ROTL64_TO(v, s) ((v) = ROTL64((v), (s)))
+
+#define ADD64_TO(v, s) ((v) += (s))
+#define XOR64_TO(v, s) ((v) ^= (s))
+#define XOR64_INT(v, x) ((v) ^= (x))
 typedef struct {
   int c;
   int d;
@@ -98,20 +103,20 @@ static sip_interface sip_methods = {
 
 #define SIP_COMPRESS(v0, v1, v2, v3)	\
 do {					\
-    (v0) += (v1);			\
-    (v2) += (v3);			\
-    (v1) = ROTL64((v1), 13);		\
-    (v3) = ROTL64((v3), 16);		\
-    (v1) ^= (v0);			\
-    (v3) ^= (v2);			\
-    (v0) = ROTL64((v0), 32);		\
-    (v2) += (v1);			\
-    (v0) += (v3);			\
-    (v1) = ROTL64((v1), 17);		\
-    (v3) = ROTL64((v3), 21);		\
-    (v1) ^= (v2);			\
-    (v3) ^= (v0);			\
-    (v2) = ROTL64((v2), 32);		\
+    ADD64_TO((v0), (v1));		\
+    ADD64_TO((v2), (v3));		\
+    ROTL64_TO((v1), 13);		\
+    ROTL64_TO((v3), 16);		\
+    XOR64_TO((v1), (v0));		\
+    XOR64_TO((v3), (v2));		\
+    ROTL64_TO((v0), 32);		\
+    ADD64_TO((v2), (v1));		\
+    ADD64_TO((v0), (v3));		\
+    ROTL64_TO((v1), 17);		\
+    ROTL64_TO((v3), 21);		\
+    XOR64_TO((v1), (v2));		\
+    XOR64_TO((v3), (v0));		\
+    ROTL64_TO((v2), 32);		\
 } while(0)
 
 static void
@@ -132,10 +137,10 @@ int_sip_init(sip_state *state, uint8_t key[16])
     k0 = U8TO64_LE(key);
     k1 = U8TO64_LE(key + sizeof(uint64_t));
 
-    state->v[0] = k0 ^ sip_init_state[0];
-    state->v[1] = k1 ^ sip_init_state[1];
-    state->v[2] = k0 ^ sip_init_state[2];
-    state->v[3] = k1 ^ sip_init_state[3];
+    state->v[0] = k0; XOR64_TO(state->v[0], sip_init_state[0]);
+    state->v[1] = k1; XOR64_TO(state->v[1], sip_init_state[1]);
+    state->v[2] = k0; XOR64_TO(state->v[2], sip_init_state[2]);
+    state->v[3] = k1; XOR64_TO(state->v[3], sip_init_state[3]);
 }
 
 static inline void
@@ -151,9 +156,9 @@ int_sip_round(sip_state *state, int n)
 static inline void
 int_sip_update_block(sip_state *state, uint64_t m)
 {
-    state->v[3] ^= m;
+    XOR64_TO(state->v[3], m);
     int_sip_round(state, state->c);
-    state->v[0] ^= m;
+    XOR64_TO(state->v[0], m);
 }
 
 static inline void
@@ -235,11 +240,14 @@ int_sip_final(sip_state *state, uint64_t *digest)
     m = U8TO64_LE(state->buf);
     int_sip_update_block(state, m);
 
-    state->v[2] ^= 0xff;
+    XOR64_INT(state->v[2], 0xff);
 
     int_sip_round(state, state->d);
 
-    *digest = state->v[0] ^ state->v[1] ^ state->v[2] ^ state->v[3];
+    *digest = state->v[0];
+    XOR64_TO(*digest, state->v[1]);
+    XOR64_TO(*digest, state->v[2]);
+    XOR64_TO(*digest, state->v[3]);
 }
 
 sip_hash *
@@ -317,10 +325,10 @@ sip_hash_dump(sip_hash *h)
 
 #define SIP_2_ROUND(m, v0, v1, v2, v3)	\
 do {					\
-    (v3) ^= (m);			\
+    XOR64_TO((v3), (m));		\
     SIP_COMPRESS(v0, v1, v2, v3);	\
     SIP_COMPRESS(v0, v1, v2, v3);	\
-    (v0) ^= (m);			\
+    XOR64_TO((v0), (m));		\
 } while (0)
 
 uint64_t
@@ -334,10 +342,10 @@ sip_hash24(uint8_t key[16], uint8_t *data, size_t len)
     k0 = U8TO64_LE(key);
     k1 = U8TO64_LE(key + sizeof(uint64_t));
 
-    v0 = k0 ^ sip_init_state[0];
-    v1 = k1 ^ sip_init_state[1];
-    v2 = k0 ^ sip_init_state[2];
-    v3 = k1 ^ sip_init_state[3];
+    v0 = k0; XOR64_TO(v0, sip_init_state[0]);
+    v1 = k1; XOR64_TO(v1, sip_init_state[1]);
+    v2 = k0; XOR64_TO(v2, sip_init_state[2]);
+    v3 = k1; XOR64_TO(v3, sip_init_state[3]);
 
 #if BYTE_ORDER == LITTLE_ENDIAN && UNALIGNED_WORD_ACCESS
     {
@@ -355,27 +363,28 @@ sip_hash24(uint8_t key[16], uint8_t *data, size_t len)
 #endif
 
     last = len << 56;
+#define OR_BYTE(n) (last |= ((uint64_t) end[n]) << ((n) * 8))
 
     switch (len % sizeof(uint64_t)) {
 	case 7:
-	    last |= ((uint64_t) end[6]) << 48;
+	    OR_BYTE(6);
 	case 6:
-	    last |= ((uint64_t) end[5]) << 40;
+	    OR_BYTE(5);
 	case 5:
-	    last |= ((uint64_t) end[4]) << 32;
+	    OR_BYTE(4);
 	case 4:
 #if BYTE_ORDER == LITTLE_ENDIAN && UNALIGNED_WORD_ACCESS
 	    last |= (uint64_t) ((uint32_t *) end)[0];
 	    break;
 #elif BYTE_ORDER == BIG_ENDIAN
-            last |= ((uint64_t) end[3]) << 24;
+	    OR_BYTE(3);
 #endif
 	case 3:
-	    last |= ((uint64_t) end[2]) << 16;
+	    OR_BYTE(2);
 	case 2:
-	    last |= ((uint64_t) end[1]) << 8;
+	    OR_BYTE(1);
 	case 1:
-	    last |= (uint64_t) end[0];
+	    OR_BYTE(0);
 	    break;
 	case 0:
 	    break;
@@ -383,12 +392,15 @@ sip_hash24(uint8_t key[16], uint8_t *data, size_t len)
 
     SIP_2_ROUND(last, v0, v1, v2, v3);
 
-    v2 ^= 0xff;
+    XOR64_INT(v2, 0xff);
 
     SIP_COMPRESS(v0, v1, v2, v3);
     SIP_COMPRESS(v0, v1, v2, v3);
     SIP_COMPRESS(v0, v1, v2, v3);
     SIP_COMPRESS(v0, v1, v2, v3);
 
-    return v0 ^ v1 ^ v2 ^ v3;
+    XOR64_TO(v0, v1);
+    XOR64_TO(v0, v2);
+    XOR64_TO(v0, v3);
+    return v0;
 }
