@@ -47,6 +47,7 @@ do {					\
     (p)[3] = (uint8_t)((v) >> 24);	\
 } while (0)
 
+#ifdef HAVE_UINT64_T
 #define U8TO64_LE(p) 							\
     ((uint64_t)U8TO32_LE(p) | ((uint64_t)U8TO32_LE((p) + 4)) << 32 )
 
@@ -64,6 +65,68 @@ do {						\
 #define ADD64_TO(v, s) ((v) += (s))
 #define XOR64_TO(v, s) ((v) ^= (s))
 #define XOR64_INT(v, x) ((v) ^= (x))
+#else
+#define U8TO64_LE(p) u8to64_le(p)
+static inline uint64_t
+u8to64_le(const uint8_t *p)
+{
+    uint64_t ret;
+    ret.lo = U8TO32_LE(p);
+    ret.hi = U8TO32_LE(p + 4);
+    return ret;
+}
+
+#define U64TO8_LE(p, v) u64to8_le(p, v)
+static inline void
+u64to8_le(uint8_t *p, uint64_t v)
+{
+    U32TO8_LE(p,     v.lo);
+    U32TO8_LE(p + 4, v.hi);
+}
+
+#define ROTL64_TO(v, s) ((s) > 32 ? rotl64_swap(rotl64_to(&(v), (s) - 32)) : \
+			 (s) == 32 ? rotl64_swap(&(v)) : rotl64_to(&(v), (s)))
+static inline uint64_t *
+rotl64_to(uint64_t *v, unsigned int s)
+{
+    uint32_t uhi = (v->hi << s) | (v->lo >> (32 - s));
+    uint32_t ulo = (v->lo << s) | (v->hi >> (32 - s));
+    v->hi = uhi;
+    v->lo = ulo;
+    return v;
+}
+
+static inline uint64_t *
+rotl64_swap(uint64_t *v)
+{
+    uint32_t t = v->lo;
+    v->lo = v->hi;
+    v->hi = t;
+    return v;
+}
+
+#define ADD64_TO(v, s) add64_to(&(v), (s))
+static inline uint64_t *
+add64_to(uint64_t *v, const uint64_t s)
+{
+    v->lo += s.lo;
+    v->hi += s.hi;
+    if (v->lo < s.lo) v->hi++;
+    return v;
+}
+
+#define XOR64_TO(v, s) xor64_to(&(v), (s))
+static inline uint64_t *
+xor64_to(uint64_t *v, const uint64_t s)
+{
+    v->lo ^= s.lo;
+    v->hi ^= s.hi;
+    return v;
+}
+
+#define XOR64_INT(v, x) ((v).lo ^= (x))
+#endif
+
 typedef struct {
   int c;
   int d;
@@ -73,12 +136,8 @@ typedef struct {
   uint8_t msglen_byte;
 } sip_state;
 
-static const uint64_t sip_init_state[4] = {
-    0x736f6d6570736575ULL,
-    0x646f72616e646f6dULL,
-    0x6c7967656e657261ULL,
-    0x7465646279746573ULL
-};
+static const char sip_init_state_bin[] = "uespemos""modnarod""arenegyl""setybdet";
+#define sip_init_state (*(uint64_t (*)[4])sip_init_state_bin)
 
 typedef struct {
     void (*init)(sip_state *s, uint8_t *key);
@@ -125,7 +184,11 @@ int_sip_dump(sip_state *state)
     int v;
 
     for (v = 0; v < 4; v++) {
+#if HAVE_UINT64_T
 	printf("v%d: %" PRIx64 "\n", v, state->v[v]);
+#else
+	printf("v%d: %" PRIx32 "%.8" PRIx32 "\n", v, state->v[v].hi, state->v[v].lo);
+#endif
     }
 }
 
@@ -362,8 +425,19 @@ sip_hash24(uint8_t key[16], uint8_t *data, size_t len)
     }
 #endif
 
+#ifdef HAVE_UINT64_T
     last = len << 56;
 #define OR_BYTE(n) (last |= ((uint64_t) end[n]) << ((n) * 8))
+#else
+    last.hi = len << 24;
+    last.lo = 0;
+#define OR_BYTE(n) do { \
+	if (n >= 4) \
+	    last.hi |= ((uint32_t) end[n]) << ((n) >= 4 ? (n) * 8 - 32 : 0); \
+	else \
+	    last.lo |= ((uint32_t) end[n]) << ((n) >= 4 ? 0 : (n) * 8); \
+    } while (0)
+#endif
 
     switch (len % sizeof(uint64_t)) {
 	case 7:
@@ -374,7 +448,11 @@ sip_hash24(uint8_t key[16], uint8_t *data, size_t len)
 	    OR_BYTE(4);
 	case 4:
 #if BYTE_ORDER == LITTLE_ENDIAN && UNALIGNED_WORD_ACCESS
+  #if HAVE_UINT64_T
 	    last |= (uint64_t) ((uint32_t *) end)[0];
+  #else
+	    last.lo |= ((uint32_t *) end)[0];
+  #endif
 	    break;
 #elif BYTE_ORDER == BIG_ENDIAN
 	    OR_BYTE(3);
