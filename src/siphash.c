@@ -14,6 +14,17 @@
 #define BIG_ENDIAN __BIG_ENDIAN
 #endif
 
+#ifndef UNALIGNED_WORD_ACCESS
+# if defined(__i386) || defined(__i386__) || defined(_M_IX86) || \
+     defined(__x86_64) || defined(__x86_64__) || defined(_M_AMD86) || \
+     defined(__mc68020__)
+#   define UNALIGNED_WORD_ACCESS 1
+# endif
+#endif
+#ifndef UNALIGNED_WORD_ACCESS
+# define UNALIGNED_WORD_ACCESS 0
+#endif
+
 #define U8TO32_LE(p)         						\
     (((uint32_t)((p)[0])       ) | ((uint32_t)((p)[1]) <<  8) |  	\
      ((uint32_t)((p)[2]) <<  16) | ((uint32_t)((p)[3]) << 24))		\
@@ -320,7 +331,7 @@ sip_hash24(uint8_t key[16], uint8_t *data, size_t len)
     v2 = k0 ^ sip_init_state[2];
     v3 = k1 ^ sip_init_state[3];
 
-#if BYTE_ORDER == LITTLE_ENDIAN
+#if BYTE_ORDER == LITTLE_ENDIAN && UNALIGNED_WORD_ACCESS
     {
         uint64_t *data64 = (uint64_t *)data;
         while (data64 != (uint64_t *) end) {
@@ -347,7 +358,7 @@ sip_hash24(uint8_t key[16], uint8_t *data, size_t len)
 	case 5:
 	    last |= ((uint64_t) end[4]) << 32;
 	case 4:
-#if BYTE_ORDER == LITTLE_ENDIAN
+#if BYTE_ORDER == LITTLE_ENDIAN && UNALIGNED_WORD_ACCESS
 	    last |= (uint64_t) ((uint32_t *) end)[0];
 	    break;
 #elif BYTE_ORDER == BIG_ENDIAN
