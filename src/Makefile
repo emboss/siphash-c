@@ -1,20 +1,23 @@
 # Simple Makefile for siphash
 
 CC= gcc
-CFLAGS= -I. -fPIC -Wall
+CFLAGS= -fPIC -Wall
+CPPFLAGS= -I.
 DEPS= siphash.h
 OBJ= siphash.o
+DLEXT = so
 
 RM= rm -f
 
 %.o: %.c $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS)
+	$(CC) -c -o $@ $< $(CFLAGS) $(CPPFLAGS)
 
-siphash: $(OBJ)
-	$(CC) -shared -Wl,-soname,$@.so -o $@.so $^
+siphash: siphash.$(DLEXT)
+siphash.$(DLEXT): $(OBJ)
+	$(CC) -shared -o $@ $^
 
 clean:
 	@-$(RM) *.o
-	@-$(RM) *.so
+	@-$(RM) *.$(DLEXT)
 
 .PHONY: siphash clean
