@@ -1,8 +1,8 @@
 # Simple Makefile for siphash
 
 CC= gcc
-CFLAGS= -fPIC -Wall
-CPPFLAGS= -I.
+CFLAGS+= -fPIC -Wall
+CPPFLAGS+= -I.
 DEPS= siphash.h
 OBJ= siphash.o
 DLEXT = so
