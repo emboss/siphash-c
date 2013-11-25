@@ -233,6 +233,9 @@ int_sip_pre_update(sip_state *state, uint8_t **pdata, size_t *plen)
     if (!state->buflen) return;
 
     to_read = sizeof(uint64_t) - state->buflen;
+
+    if (to_read > *plen) return;
+
     memcpy(state->buf + state->buflen, *pdata, to_read);
     m = U8TO64_LE(state->buf);
     int_sip_update_block(state, m);
