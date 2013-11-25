@@ -269,10 +269,12 @@ int_sip_update(sip_state *state, uint8_t *data, size_t len)
     uint64_t *data64;
 
     state->msglen_byte = state->msglen_byte + (len % 256);
-    data64 = (uint64_t *) data;
 
     int_sip_pre_update(state, &data, &len);
+    if (len == 0)
+        return;
 
+    data64 = (uint64_t *) data;
     end = data64 + (len / sizeof(uint64_t));
 
 #if BYTE_ORDER == LITTLE_ENDIAN
