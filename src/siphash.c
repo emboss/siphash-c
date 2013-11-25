@@ -229,19 +229,27 @@ int_sip_pre_update(sip_state *state, uint8_t **pdata, size_t *plen)
 {
     int to_read;
     uint64_t m;
+    int incomplete = 0;
 
     if (!state->buflen) return;
 
     to_read = sizeof(uint64_t) - state->buflen;
-
-    if (to_read > *plen) return;
+    if (to_read > *plen) {
+        incomplete = 1;
+        to_read = *plen;
+    }
 
     memcpy(state->buf + state->buflen, *pdata, to_read);
-    m = U8TO64_LE(state->buf);
-    int_sip_update_block(state, m);
+    state->buflen = incomplete ? (state->buflen + to_read) : 0;
+
     *pdata += to_read;
     *plen -= to_read;
-    state->buflen = 0;
+
+    if (state->buflen == 0) {
+        m = U8TO64_LE(state->buf);
+        int_sip_update_block(state, m);
+    }
+
 }
 
 static inline void
