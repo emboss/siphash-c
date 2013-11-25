@@ -9,15 +9,23 @@ DLEXT = so
 
 RM= rm -f
 
+all: static shared
+
+shared: libsiphash.$(DLEXT)
+
+static: $(OBJ) siphash.a
+
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS) $(CPPFLAGS)
 
-siphash: siphash.$(DLEXT)
-siphash.$(DLEXT): $(OBJ)
+libsiphash.$(DLEXT): $(OBJ)
 	$(CC) -shared -o $@ $^
+siphash.a:
+	ar -r libsiphash.a *.o
 
 clean:
 	@-$(RM) *.o
 	@-$(RM) *.$(DLEXT)
+	@-$(RM) *.a
 
 .PHONY: siphash clean
