@@ -1,7 +1,7 @@
 # Simple Makefile for siphash
 
 CC= gcc
-CFLAGS+= -fPIC -Wall
+CFLAGS+= -fPIC -Wall -Wno-strict-aliasing
 CPPFLAGS+= -I.
 DEPS= siphash.h
 OBJ= siphash.o
