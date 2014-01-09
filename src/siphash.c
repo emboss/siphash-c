@@ -331,9 +331,13 @@ sip_hash_new(uint8_t key[16], int c, int d)
 {
     sip_hash *h = NULL;
 
-    if (!(h = (sip_hash *) malloc(sizeof(sip_hash)))) return NULL;
+    if (!(h = (sip_hash *) malloc(sizeof(sip_hash))))
+        return NULL;
     h->state = NULL;
-    if (!(h->state = (sip_state *) malloc(sizeof(sip_state)))) return NULL;
+    if (!(h->state = (sip_state *) malloc(sizeof(sip_state)))) {
+        free(h);
+        return NULL;
+    }
     h->state->c = c;
     h->state->d = d;
     h->state->buflen = 0;
@@ -357,7 +361,8 @@ sip_hash_final(sip_hash *h, uint8_t **digest, size_t* len)
     uint8_t *ret;
 
     h->methods->final(h->state, &digest64);
-    if (!(ret = (uint8_t *)malloc(sizeof(uint64_t)))) return 0;
+    int psize = sizeof(uint64_t);
+    if (!(ret = malloc(psize))) return 0;
     U64TO8_LE(ret, digest64);
     *len = sizeof(uint64_t);
     *digest = ret;
