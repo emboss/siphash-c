@@ -229,16 +229,27 @@ int_sip_pre_update(sip_state *state, uint8_t **pdata, size_t *plen)
 {
     int to_read;
     uint64_t m;
+    int incomplete = 0;
 
     if (!state->buflen) return;
 
     to_read = sizeof(uint64_t) - state->buflen;
+    if (to_read > *plen) {
+        incomplete = 1;
+        to_read = *plen;
+    }
+
     memcpy(state->buf + state->buflen, *pdata, to_read);
-    m = U8TO64_LE(state->buf);
-    int_sip_update_block(state, m);
+    state->buflen = incomplete ? (state->buflen + to_read) : 0;
+
     *pdata += to_read;
     *plen -= to_read;
-    state->buflen = 0;
+
+    if (state->buflen == 0) {
+        m = U8TO64_LE(state->buf);
+        int_sip_update_block(state, m);
+    }
+
 }
 
 static inline void
@@ -258,10 +269,12 @@ int_sip_update(sip_state *state, uint8_t *data, size_t len)
     uint64_t *data64;
 
     state->msglen_byte = state->msglen_byte + (len % 256);
-    data64 = (uint64_t *) data;
 
     int_sip_pre_update(state, &data, &len);
+    if (len == 0)
+        return;
 
+    data64 = (uint64_t *) data;
     end = data64 + (len / sizeof(uint64_t));
 
 #if BYTE_ORDER == LITTLE_ENDIAN
@@ -318,9 +331,13 @@ sip_hash_new(uint8_t key[16], int c, int d)
 {
     sip_hash *h = NULL;
 
-    if (!(h = (sip_hash *) malloc(sizeof(sip_hash)))) return NULL;
+    if (!(h = (sip_hash *) malloc(sizeof(sip_hash))))
+        return NULL;
     h->state = NULL;
-    if (!(h->state = (sip_state *) malloc(sizeof(sip_state)))) return NULL;
+    if (!(h->state = (sip_state *) malloc(sizeof(sip_state)))) {
+        free(h);
+        return NULL;
+    }
     h->state->c = c;
     h->state->d = d;
     h->state->buflen = 0;
@@ -344,7 +361,8 @@ sip_hash_final(sip_hash *h, uint8_t **digest, size_t* len)
     uint8_t *ret;
 
     h->methods->final(h->state, &digest64);
-    if (!(ret = (uint8_t *)malloc(sizeof(uint64_t)))) return 0;
+    int psize = sizeof(uint64_t);
+    if (!(ret = malloc(psize))) return 0;
     U64TO8_LE(ret, digest64);
     *len = sizeof(uint64_t);
     *digest = ret;
